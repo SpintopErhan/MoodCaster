@@ -4,51 +4,46 @@ import MusicPlayer from './components/MusicPlayer';
 import LoadingSpinner from './components/LoadingSpinner';
 import { Mood } from './types';
 
-// ==================== FARCASTER – BU SEFER %100 ====================
+// ==================== EN STABİL YÖNTEM – CDN + BUNDLE ====================
 function FarcasterMiniAppReady() {
   useLayoutEffect(() => {
-    const isMiniApp = () => {
-      if (typeof window === 'undefined') return false;
-      const url = new URL(window.location.href);
-      return (
-        url.hostname.includes('warpcast.com') ||
-        url.hostname.includes('farcaster.xyz') ||
-        url.searchParams.has('miniapp') ||
-        url.searchParams.has('embedded') ||
-        url.pathname.includes('/miniapps/') ||
-        url.pathname.includes('/developers/mini-apps/')
-      );
-    };
+    // Mini App içinde miyiz?
+    const url = window.location.href;
+    const isMiniApp = url.includes('warpcast.com') || 
+                      url.includes('farcaster.xyz') || 
+                      url.includes('miniapp') || 
+                      url.includes('embedded');
 
-    if (!isMiniApp()) return;
+    if (!isMiniApp) return;
 
-    console.log('Mini App ortamı tespit edildi – SDK yükleniyor...');
+    console.log('Farcaster Mini App tespit edildi! SDK yükleniyor...');
 
-    // Resmi docs’taki yöntem: ?bundle olmadan da çalışıyor ama bundle daha stabil
-    import('https://esm.sh/@farcaster/miniapp-sdk@latest')
-      .then(async ({ sdk }) => {
-        console.log('SDK yüklendi');
-
-        // Tüm paint’ler bitsin diye 2 kere requestAnimationFrame
-        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-        // Warpcast’in en yavaş hali için 1500ms garanti
-        await new Promise(r => setTimeout(r, 1500));
-
+    // Bu link resmi docs’ta önerilen, bağımlılıkların hepsini içinde barındırıyor
+    const script = document.createElement('script');
+    script.type = 'module';
+    script.src = 'https://esm.sh/@farcaster/miniapp-sdk@latest?bundle';
+    script.onload = async () => {
+      // @ts-ignore – SDK global olarak window’a geliyor
+      const { sdk } = window.__farcaster_miniapp_sdk || await import('https://esm.sh/@farcaster/miniapp-sdk@latest?bundle');
+      
+      // React render bitsin + Warpcast hazır olsun diye 1200ms bekle
+      setTimeout(async () => {
         try {
           await sdk.actions.ready();
-          console.log('✅ ready() GÖNDERİLDİ – SPLASH SCREEN KALKIYOR! YEŞİL TİK GELDİ!');
+          console.log('✅ ready() çağrıldı – splash screen kalkıyor, yeşil tik geliyor!');
         } catch (e) {
-          console.error('ready() hatası:', e);
+          console.error('ready hatası:', e);
         }
-      })
-      .catch(err => console.error('SDK yüklenemedi:', err));
+      }, 1200);
+    };
+    script.onerror = () => console.error('SDK script yüklenemedi');
+    document.head.appendChild(script);
   }, []);
 
   return null;
 }
 
-// ==================== ANA APP ====================
+// ==================== APP (gerisi aynı) ====================
 export default function App() {
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
   const [generatedMusicUrl, setGeneratedMusicUrl] = useState<string | null>(null);
@@ -73,7 +68,6 @@ export default function App() {
       setGeneratedMusicUrl(data.musicUrl);
     } catch (err) {
       setError('Bir hata oluştu, lütfen tekrar dene.');
-      console.error(err);
     } finally {
       setIsLoading(false);
     }
@@ -88,8 +82,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
       
-      {/* BU SATIRI SAKIN SİLME */}
-      <FarcasterMiniAppReady />
+      <FarcasterMiniAppReady />   {/* BU SATIR KRİTİK */}
 
       <div className="container mx-auto px-4 py-8 max-w-2xl">
         <h1 className="text-5xl font-bold text-center mb-2">MoodCaster</h1>
@@ -124,10 +117,7 @@ export default function App() {
               <div className="mt-8">
                 <MusicPlayer musicUrl={generatedMusicUrl} mood={selectedMood} />
                 <div className="text-center mt-8">
-                  <button
-                    onClick={handleReset}
-                    className="bg-white text-purple-900 px-8 py-4 rounded-full font-bold text-lg hover:bg-opacity-90 transition"
-                  >
+                  <button onClick={handleReset} className="bg-white text-purple-900 px-8 py-4 rounded-full font-bold text-lg hover:bg-opacity-90 transition">
                     Yeni Ruh Hali Seç
                   </button>
                 </div>
