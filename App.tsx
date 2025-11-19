@@ -17,43 +17,47 @@ const App: React.FC = () => {
   const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
   // ---------------------------------------------------------------------------
-  // CRITICAL: Farcaster MiniApp SDK Initialization (Grok Solution)
+  // Farcaster MiniApp SDK Initialization
+  // Implements the "Grok" strategy: Conditional dynamic import of bundled SDK
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    const initSDK = async () => {
+    const initFarcaster = async () => {
       if (typeof window === 'undefined') return;
-      
+
+      // Check if we are running inside a Mini App environment
+      // This check looks for specific query params or hostname patterns
       const url = new URL(window.location.href);
       const isMiniApp = url.searchParams.has('miniapp') || 
                         url.searchParams.has('embedded') || 
-                        window.location.hostname.includes('warpcast.com');
+                        window.location.hostname.includes('warpcast.com') ||
+                        window.parent !== window; // Simple iframe check
 
-      // If we are in a Mini App environment, load the SDK dynamically
       if (isMiniApp) {
+        console.log('MoodCaster: Detected MiniApp environment. Loading SDK...');
         try {
-          console.log('Attempting to load @farcaster/miniapp-sdk...');
-          // Use dynamic import with ?bundle to resolve dependencies
+          // Load the SDK from esm.sh with the ?bundle parameter to handle dependencies like zod internally
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const module: any = await import('https://esm.sh/@farcaster/miniapp-sdk?bundle');
+          const module: any = await import('https://esm.sh/@farcaster/miniapp-sdk@0.0.14?bundle');
           
+          // Handle potential ESM export variations (named vs default)
           const sdk = module.sdk || module.default?.sdk;
-          
+
           if (sdk && sdk.actions) {
-            console.log('Farcaster SDK loaded. Calling ready()...');
+            // Call ready() to signal Farcaster to remove the splash screen
             sdk.actions.ready();
-            console.log('Farcaster Mini App ready signal sent!');
+            console.log('MoodCaster: SDK Ready signal sent!');
           } else {
-            console.error('SDK loaded but actions not found', module);
+            console.warn('MoodCaster: SDK loaded but actions object missing.', module);
           }
         } catch (err) {
-          console.error('Failed to load Farcaster SDK:', err);
+          console.error('MoodCaster: Failed to load Farcaster SDK:', err);
         }
       } else {
-        console.log('Not running in Farcaster MiniApp environment. SDK skipped.');
+        console.log('MoodCaster: Running in standard web mode.');
       }
     };
 
-    initSDK();
+    initFarcaster();
   }, []);
 
   // Function to fetch data (used on mount and on manual refresh)
