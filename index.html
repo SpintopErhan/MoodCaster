@@ -12,34 +12,41 @@
     <title>MoodCaster</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- CRITICAL POLYFILLS FOR FARCASTER SDK -->
+    <!-- SUPER ROBUST POLYFILLS -->
     <script>
-      // 1. Define global
+      // 1. Global definition
       window.global = window;
 
-      // 2. Define a robust 'process' mock. 
-      // The SDK tries to call process.addListener, causing crashes if missing.
+      // 2. Robust Process Mock with EventEmitter
+      // The error "reading 'addListener'" happens because process is expected to be an EventEmitter
       window.process = {
         env: { NODE_ENV: 'production' },
-        version: '',
+        version: 'v16.0.0',
         nextTick: function(cb) { setTimeout(cb, 0); },
         browser: true,
-        addListener: function() {}, // Stub function to prevent crash
-        on: function() {},          // Stub function
-        removeListener: function() {}, // Stub function
-        off: function() {},         // Stub function
-        emit: function() {},        // Stub function
-        cwd: function() { return '/' }
+        platform: 'browser',
+        cwd: function() { return '/'; },
+        // Event Emitter stubs
+        addListener: function() { return this; },
+        on: function() { return this; },
+        removeListener: function() { return this; },
+        off: function() { return this; },
+        emit: function() { return false; },
+        once: function() { return this; },
+        listeners: function() { return []; }
       };
     </script>
 
-    <!-- 3. Load Buffer Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/buffer/6.0.3/buffer.min.js"></script>
+    <!-- 3. Load Buffer (Synchronous) -->
+    <script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/index.min.js"></script>
+    
     <script>
-      // 4. Link Buffer to window
-      if (typeof window !== 'undefined' && window.buffer) {
+      // 4. Bind Buffer globally
+      if (window.buffer && window.buffer.Buffer) {
         window.Buffer = window.buffer.Buffer;
-        console.log("Polyfills applied: global, process, Buffer");
+        console.log("Polyfills loaded: Buffer ready");
+      } else {
+        console.warn("Buffer script loaded but window.buffer missing");
       }
     </script>
 

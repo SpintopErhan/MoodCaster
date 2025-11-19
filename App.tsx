@@ -21,17 +21,25 @@ const App: React.FC = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        // We are using a static import, but we wrap it in a try/catch block
-        // and add logs to ensure we know what's happening.
-        // The Polyfills in index.html ensure 'sdk' doesn't crash on import.
-        console.log("Farcaster SDK: calling ready()...");
-        
+        // Check if context is available to verify SDK loaded correctly
+        const context = await sdk.context;
+        console.log("Farcaster SDK Loaded. Context:", context);
+
         // Call ready() to dismiss the splash screen
-        await sdk.actions.ready();
-        
-        console.log("Farcaster SDK: ready() called successfully");
+        // We add a small delay to ensure the UI is painted
+        setTimeout(() => {
+          sdk.actions.ready();
+          console.log("Farcaster SDK: ready() called.");
+        }, 500);
+
       } catch (err) {
-        console.error("Farcaster SDK: Error calling ready():", err);
+        console.error("Farcaster SDK Error:", err);
+        // Even if context fails (e.g. in browser), we try to call ready() just in case
+        try {
+            sdk.actions.ready();
+        } catch (e) {
+            console.warn("Could not call ready() - likely running in standard browser.");
+        }
       }
     };
     load();
@@ -166,6 +174,7 @@ const App: React.FC = () => {
             <Loader2 size={48} className="animate-spin text-purple-500 mx-auto" />
             <h1 className="text-xl font-bold animate-pulse">Waiting for Location...</h1>
             <p className="text-slate-400 text-sm">Your location is required to place you on the world map.</p>
+            <p className="text-slate-600 text-xs mt-4">If stuck, check browser permissions.</p>
           </div>
         )}
       </div>
