@@ -1,262 +1,138 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import WorldMap from './components/WorldMap';
+import React, { useState, useEffect } from 'react';
 import MoodSelector from './components/MoodSelector';
-import { AppStep, Location, MoodEntry } from './types';
-import { api } from './services/api';
-import { Loader2, MapPinOff } from 'lucide-react';
+import MusicPlayer from './components/MusicPlayer';
+import LoadingSpinner from './components/LoadingSpinner';
+import { Mood } from './types';
 
-'use client'; // bu satır CRA’de gerek yok ama zararsız, silersen de olur
-
-import { useEffect } from 'react';
-
+// ==================== FARCASTER MINI APP READY COMPONENT ====================
 function FarcasterMiniAppReady() {
   useEffect(() => {
-    // Warpcast Mini App içinde miyiz? (Developer Preview + gerçek kullanım için geniş kontrol)
+    // Warpcast Mini App içinde miyiz? (Developer preview + gerçek kullanım kapsar)
     const isMiniApp = () => {
-      window.location.hostname.includes('warpcast.com') ||
-      new URLSearchParams(window.location.search).has('miniapp') ||
-      new URLSearchParams(window.location.search).has('embedded');
+      if (typeof window === 'undefined') return false;
+      const url = new URL(window.location.href);
+      return (
+        url.hostname.includes('warpcast.com') ||
+        url.searchParams.has('miniapp') ||
+        url.searchParams.has('embedded') ||
+        url.pathname.includes('/miniapps/')
+      );
+    };
 
     if (!isMiniApp()) return;
 
     console.log('Farcaster Mini App algılandı, SDK yükleniyor...');
 
+    // esm.sh ile tamamen bundle edilmiş, bağımlılık sorunu olmayan SDK
     import('https://esm.sh/@farcaster/miniapp-sdk@latest?bundle')
       .then(async ({ sdk }) => {
-        // Küçük bir gecikme ile ready()’nin kesinlikle çalıştığından emin oluyoruz
-        await new Promise(r => setTimeout(r, 150));
+        // Splash screen’in kesin kalkması için küçük gecikme
+        await new Promise(resolve => setTimeout(resolve, 200));
         await sdk.actions.ready();
-        console.log('✅ ready() çağrıldı – splash screen kalktı!');
+        console.log('✅ Farcaster ready() çağrıldı – splash screen kalktı!');
       })
-      .catch(err => console.error('SDK yüklenemedi:', err));
+      .catch(err => {
+        console.error('Farcaster SDK yüklenemedi:', err);
+      });
   }, []);
 
-  return null; // ekranda hiçbir şey göstermiyor
+  // Ekranda hiçbir şey göstermiyor, sadece ready sinyali gönderiyor
+  return null;
 }
 
-         
-const App: React.FC = () => {
-  const [step, setStep] = useState<AppStep>(AppStep.LOADING_LOCATION);
-  const [userLocation, setUserLocation] = useState<Location | null>(null);
-  const [locationCity, setLocationCity] = useState<string | undefined>(undefined);
-  const [entries, setEntries] = useState<MoodEntry[]>([]);
+// ==================== ANA APP COMPONENT ====================
+export default function App() {
+  const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  const [generatedMusicUrl, setGeneratedMusicUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [isSDKLoaded, setIsSDKLoaded] = useState(false);
 
-  // Constant for 24 hours in milliseconds
-  const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+  const handleGenerate = async (mood: Mood) => {
+    setSelectedMood(mood.name);
+    setIsLoading(true);
+    setError(null);
+    setGeneratedMusicUrl(null);
 
-  // ---------------------------------------------------------------------------
-  // CRITICAL: Farcaster MiniApp SDK Initialization
-  // ---------------------------------------------------------------------------
-  useEffect(() => {
-    const initFarcaster = async () => {
-      try {
-        // Check if we are strictly in a web browser (not iframe/embedded) just to be safe,
-        // or simply try to load. The safest bet for compatibility is to try loading.
-        
-        // Import the specific miniapp-sdk from esm.sh with bundle param to avoid dependency hell
-        const module = await import('https://esm.sh/@farcaster/miniapp-sdk?bundle');
-        
-        // Handle ESM default export vs named export variability
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const sdk = (module as any).sdk || (module as any).default?.sdk;
-
-        if (sdk && sdk.actions) {
-          console.log("Farcaster MiniApp SDK loaded. Calling ready()...");
-          await sdk.actions.ready();
-          setIsSDKLoaded(true);
-          console.log("Farcaster ready signal sent.");
-        } else {
-          console.warn("SDK loaded but 'sdk' object was missing in module:", module);
-        }
-      } catch (err) {
-        // If this fails, it's likely we are just in a normal browser or network blocked script
-        console.warn("Farcaster SDK initialization skipped/failed:", err);
-      }
-    };
-
-    initFarcaster();
-  }, []);
-
-  // Function to fetch data (used on mount and on manual refresh)
-  const loadGlobalData = useCallback(async () => {
-    setIsRefreshing(true);
     try {
-      const data = await api.fetchGlobalMoods();
-      // Determine if we need to merge with local user state or just replace
-      // For now, we just update the non-user entries
-      setEntries(prevEntries => {
-        const userEntry = prevEntries.find(e => e.isUser);
-        return userEntry ? [...data, userEntry] : data;
+      const response = await fetch('/api/generate-music', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mood: mood.name }),
       });
-    } catch (err) {
-      console.error("Failed to fetch moods:", err);
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, []);
 
-  // Function to get city name from coordinates (Reverse Geocoding)
-  const fetchCityName = async (lat: number, lng: number) => {
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
-      );
+      if (!response.ok) throw new Error('Müzik üretilemedi');
+
       const data = await response.json();
-      // Try to find the most relevant city/town name
-      const city = data.address.city || data.address.town || data.address.village || data.address.county || "Unknown Location";
-      setLocationCity(city);
-    } catch (error) {
-      console.error("Failed to fetch city name:", error);
+      setGeneratedMusicUrl(data.musicUrl);
+    } catch (err) {
+      setError('Bir hata oluştu, lütfen tekrar dene.');
+      console.error(err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // 1. Initial Data Load
-  useEffect(() => {
-    loadGlobalData();
-  }, [loadGlobalData]);
-
-  // 2. Get User Location
-  useEffect(() => {
-    if (!navigator.geolocation) {
-      setError("Your browser does not support geolocation.");
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        setUserLocation({
-          lat: latitude,
-          lng: longitude,
-        });
-        fetchCityName(latitude, longitude);
-        setStep(AppStep.MOOD_SELECTION);
-      },
-      (err) => {
-        console.error(err);
-        setError("Could not access your location. Please ensure you have granted permission.");
-        // Fallback location (e.g., Istanbul) for UX continuity if permission denied
-        const fallbackLat = 41.0082;
-        const fallbackLng = 28.9784;
-        setUserLocation({ lat: fallbackLat, lng: fallbackLng });
-        fetchCityName(fallbackLat, fallbackLng);
-        setStep(AppStep.MOOD_SELECTION);
-      }
-    );
-  }, []);
-
-  const handleMoodSubmit = async (emoji: string, status: string) => {
-    if (!userLocation) return;
-
-    const newEntry: MoodEntry = {
-      id: `user-${Date.now()}`,
-      emoji,
-      status,
-      lat: userLocation.lat,
-      lng: userLocation.lng,
-      timestamp: Date.now(),
-      isUser: true,
-    };
-
-    // Optimistically update UI
-    setEntries((prev) => {
-      const others = prev.filter(e => !e.isUser);
-      return [...others, newEntry];
-    });
-    
-    setStep(AppStep.MAP_VIEW);
-
-    // Send to backend
-    await api.publishMood(newEntry);
+  const handleReset = () => {
+    setSelectedMood(null);
+    setGeneratedMusicUrl(null);
+    setError(null);
   };
-
-  // Filter entries to only show those within the last 24 hours
-  const activeEntries = entries.filter(entry => {
-    const age = Date.now() - entry.timestamp;
-    return age < TWENTY_FOUR_HOURS_MS;
-  });
-
-  // Check if the user has already posted a mood that is still active
-  const hasPosted = activeEntries.some(e => e.isUser);
-
-  const handleCloseSelector = () => {
-    if (hasPosted) {
-      setStep(AppStep.MAP_VIEW);
-    }
-  };
-
-  // Render Loading Screen
-  if (step === AppStep.LOADING_LOCATION) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen bg-slate-950 text-white p-6">
-        {error ? (
-          <div className="text-center space-y-4">
-            <MapPinOff size={48} className="text-red-500 mx-auto" />
-            <h1 className="text-xl font-bold">Something Went Wrong</h1>
-            <p className="text-slate-400">{error}</p>
-            <button 
-              onClick={() => window.location.reload()}
-              className="px-6 py-2 bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors"
-            >
-              Try Again
-            </button>
-          </div>
-        ) : (
-          <div className="text-center space-y-4">
-            <Loader2 size={48} className="animate-spin text-purple-500 mx-auto" />
-            <h1 className="text-xl font-bold animate-pulse">Waiting for Location...</h1>
-            <p className="text-slate-400 text-sm">Your location is required to place you on the world map.</p>
-          </div>
-        )}
-      </div>
-    );
-  }
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-slate-950">
-      {/* The Map */}
-      {userLocation && (
-        <WorldMap 
-          userLocation={userLocation} 
-          entries={activeEntries}
-          onRefresh={loadGlobalData}
-          isRefreshing={isRefreshing}
-        />
-      )}
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
+      
+      {/* FARCASTER İÇİN KRİTİK SATIR – SAKIN SİLME! */}
+      <FarcasterMiniAppReady />
 
-      {/* Overlay for Mood Selection */}
-      {step === AppStep.MOOD_SELECTION && (
-        <div 
-          onClick={handleCloseSelector}
-          className={`absolute inset-0 bg-black/60 z-40 flex items-end sm:items-center justify-center transition-opacity duration-300 ${hasPosted ? 'cursor-pointer' : 'cursor-default'}`}
-        >
-           <MoodSelector 
-             onSubmit={handleMoodSubmit} 
-             onClose={hasPosted ? handleCloseSelector : undefined}
-             locationCity={locationCity}
-           />
-        </div>
-      )}
+      <div className="container mx-auto px-4 py-8 max-w-2xl">
+        <h1 className="text-5xl font-bold text-center mb-2">MoodCaster</h1>
+        <p className="text-center text-xl mb-8 opacity-90">
+          Ruh halini seç, AI senin için mükemmel şarkıyı yaratsın!
+        </p>
 
-      {/* Global Controls when Map is active */}
-      {step === AppStep.MAP_VIEW && (
-        <>
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000]">
-                <button 
-                    onClick={() => setStep(AppStep.MOOD_SELECTION)}
-                    className="bg-slate-900/80 backdrop-blur-md text-white px-6 py-3 rounded-full font-bold shadow-xl border border-slate-700 hover:bg-slate-800 transition-all hover:scale-105 active:scale-95 flex items-center gap-2"
-                >
-                    <span>Update Status</span>
-                </button>
+        {!selectedMood ? (
+          <MoodSelector onSelect={handleGenerate} disabled={isLoading} />
+        ) : (
+          <div className="mt-10">
+            <div className="text-center mb-8">
+              <p className="text-2xl mb-4">
+                Seçtiğin ruh hali: <span className="font-bold text-3xl">{selectedMood}</span>
+              </p>
             </div>
-        </>
-      )}
+
+            {isLoading && (
+              <div className="flex flex-col items-center">
+                <LoadingSpinner />
+                <p className="mt-4 text-lg">AI senin için müzik üretiyor, biraz bekle...</p>
+              </div>
+            )}
+
+            {error && (
+              <div className="text-center text-red-300 bg-red-900/50 rounded-lg p-6">
+                <p>{error}</p>
+              </div>
+            )}
+
+            {generatedMusicUrl && (
+              <div className="mt-8">
+                <MusicPlayer musicUrl={generatedMusicUrl} mood={selectedMood} />
+                <div className="text-center mt-8">
+                  <button
+                    onClick={handleReset}
+                    className="bg-white text-purple-900 px-8 py-4 rounded-full font-bold text-lg hover:bg-opacity-90 transition"
+                  >
+                    Yeni Ruh Hali Seç
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <footer className="text-center mt-16 text-sm opacity-70">
+          Powered by Google AI Studio + Suno API
+        </footer>
+      </div>
     </div>
   );
-};
-
-export default App;
+}
