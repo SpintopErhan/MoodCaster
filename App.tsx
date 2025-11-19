@@ -1,46 +1,56 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import MoodSelector from './components/MoodSelector';
 import MusicPlayer from './components/MusicPlayer';
 import LoadingSpinner from './components/LoadingSpinner';
 import { Mood } from './types';
 
-// ==================== FARCASTER MINI APP READY COMPONENT ====================
+// ==================== FARCASTER KESİN ÇALIŞAN VERSİYON ====================
 function FarcasterMiniAppReady() {
-  useEffect(() => {
-    // Warpcast Mini App içinde miyiz? (Developer preview + gerçek kullanım kapsar)
+  useLayoutEffect(() => {
+    // Mini App ortamı kontrolü (en geniş kapsam)
     const isMiniApp = () => {
       if (typeof window === 'undefined') return false;
       const url = new URL(window.location.href);
       return (
         url.hostname.includes('warpcast.com') ||
+        url.hostname.includes('farcaster.xyz') ||
         url.searchParams.has('miniapp') ||
         url.searchParams.has('embedded') ||
-        url.pathname.includes('/miniapps/')
+        url.pathname.includes('/miniapps/') ||
+        url.pathname.includes('/developers/mini-apps/')
       );
     };
 
     if (!isMiniApp()) return;
 
-    console.log('Farcaster Mini App algılandı, SDK yükleniyor...');
+    console.log('Farcaster Mini App tespit edildi, SDK yükleniyor...');
 
-    // esm.sh ile tamamen bundle edilmiş, bağımlılık sorunu olmayan SDK
     import('https://esm.sh/@farcaster/miniapp-sdk@latest?bundle')
       .then(async ({ sdk }) => {
-        // Splash screen’in kesin kalkması için küçük gecikme
-        await new Promise(resolve => setTimeout(resolve, 200));
-        await sdk.actions.ready();
-        console.log('✅ Farcaster ready() çağrıldı – splash screen kalktı!');
+        console.log('SDK başarıyla yüklendi');
+
+        // Tüm DOM ve React render tamamen bitene kadar bekle
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        
+        // Warpcast’in en yavaş hali için yeterli gecikme
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        try {
+          await sdk.actions.ready();
+          console.log('READY SİNYALİ GÖNDERİLDİ – SPLASH SCREEN KALKIYOR! ✅');
+        } catch (e) {
+          console.error('ready() hatası:', e);
+        }
       })
       .catch(err => {
-        console.error('Farcaster SDK yüklenemedi:', err);
+        console.error('SDK yüklenemedi:', err);
       });
   }, []);
 
-  // Ekranda hiçbir şey göstermiyor, sadece ready sinyali gönderiyor
   return null;
 }
 
-// ==================== ANA APP COMPONENT ====================
+// ==================== APP ====================
 export default function App() {
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
   const [generatedMusicUrl, setGeneratedMusicUrl] = useState<string | null>(null);
@@ -61,7 +71,6 @@ export default function App() {
       });
 
       if (!response.ok) throw new Error('Müzik üretilemedi');
-
       const data = await response.json();
       setGeneratedMusicUrl(data.musicUrl);
     } catch (err) {
@@ -81,8 +90,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
       
-      {/* FARCASTER İÇİN KRİTİK SATIR – SAKIN SİLME! */}
-      <FarcasterMiniAppReady />
+      <FarcasterMiniAppReady />   {/* BU SATIRI SAKIN SİLME */}
 
       <div className="container mx-auto px-4 py-8 max-w-2xl">
         <h1 className="text-5xl font-bold text-center mb-2">MoodCaster</h1>
