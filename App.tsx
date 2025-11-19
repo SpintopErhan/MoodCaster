@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+
+import React, { useEffect, useState, useCallback } from 'react';
 import WorldMap from './components/WorldMap';
 import MoodSelector from './components/MoodSelector';
 import { AppStep, Location, MoodEntry } from './types';
-import { generateMockData } from './constants';
+import { api } from './services/api';
 import { Loader2, MapPinOff } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -10,12 +11,33 @@ const App: React.FC = () => {
   const [userLocation, setUserLocation] = useState<Location | null>(null);
   const [entries, setEntries] = useState<MoodEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // 1. Initialize Mock Data
-  useEffect(() => {
-    const mockData = generateMockData(50); // 50 fake users
-    setEntries(mockData);
+  // Constant for 24 hours in milliseconds
+  const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+
+  // Function to fetch data (used on mount and on manual refresh)
+  const loadGlobalData = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      const data = await api.fetchGlobalMoods();
+      // Determine if we need to merge with local user state or just replace
+      // For now, we just update the non-user entries
+      setEntries(prevEntries => {
+        const userEntry = prevEntries.find(e => e.isUser);
+        return userEntry ? [...data, userEntry] : data;
+      });
+    } catch (err) {
+      console.error("Failed to fetch moods:", err);
+    } finally {
+      setIsRefreshing(false);
+    }
   }, []);
+
+  // 1. Initial Data Load
+  useEffect(() => {
+    loadGlobalData();
+  }, [loadGlobalData]);
 
   // 2. Get User Location
   useEffect(() => {
@@ -42,13 +64,9 @@ const App: React.FC = () => {
     );
   }, []);
 
-  const handleMoodSubmit = (emoji: string, status: string) => {
+  const handleMoodSubmit = async (emoji: string, status: string) => {
     if (!userLocation) return;
 
-    // Check if user already exists to update instead of append (optional logic, 
-    // but here we just append to top for simplicity as per previous logic)
-    // A more robust app would update the existing ID.
-    
     const newEntry: MoodEntry = {
       id: `user-${Date.now()}`,
       emoji,
@@ -59,18 +77,27 @@ const App: React.FC = () => {
       isUser: true,
     };
 
-    // Remove old user entry if exists to avoid duplicates visually
+    // Optimistically update UI
     setEntries((prev) => {
-      const filtered = prev.filter(e => !e.isUser);
-      return [...filtered, newEntry];
+      const others = prev.filter(e => !e.isUser);
+      return [...others, newEntry];
     });
     
     setStep(AppStep.MAP_VIEW);
+
+    // Send to backend
+    await api.publishMood(newEntry);
   };
 
-  // Check if the user has already posted a mood.
-  // If they have, we allow them to close the selector without posting again.
-  const hasPosted = entries.some(e => e.isUser);
+  // Filter entries to only show those within the last 24 hours
+  // (Double check client side, although API should handle this)
+  const activeEntries = entries.filter(entry => {
+    const age = Date.now() - entry.timestamp;
+    return age < TWENTY_FOUR_HOURS_MS;
+  });
+
+  // Check if the user has already posted a mood that is still active
+  const hasPosted = activeEntries.some(e => e.isUser);
 
   const handleCloseSelector = () => {
     if (hasPosted) {
@@ -107,11 +134,13 @@ const App: React.FC = () => {
 
   return (
     <div className="relative w-full h-screen overflow-hidden bg-slate-950">
-      {/* The Map - Always visible but covered by MoodSelector initially */}
+      {/* The Map */}
       {userLocation && (
         <WorldMap 
           userLocation={userLocation} 
-          entries={entries} 
+          entries={activeEntries}
+          onRefresh={loadGlobalData}
+          isRefreshing={isRefreshing}
         />
       )}
 

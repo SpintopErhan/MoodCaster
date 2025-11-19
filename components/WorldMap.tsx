@@ -1,14 +1,15 @@
+
 import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { MoodEntry, Location } from '../types';
-
-// Ensure Leaflet default icons are fixed if needed (though we use custom divIcon)
-// Leaflet CSS is in index.html
+import { RefreshCw } from 'lucide-react';
 
 interface WorldMapProps {
   userLocation: Location;
   entries: MoodEntry[];
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 // Component to recenter map when user location is found
@@ -20,12 +21,24 @@ const RecenterMap = ({ location }: { location: Location }) => {
   return null;
 };
 
-const WorldMap: React.FC<WorldMapProps> = ({ userLocation, entries }) => {
+const WorldMap: React.FC<WorldMapProps> = ({ userLocation, entries, onRefresh, isRefreshing }) => {
   // Define bounds to restrict the map to one world instance
   const worldBounds: L.LatLngBoundsExpression = [[-90, -180], [90, 180]];
 
   return (
     <div className="w-full h-full relative z-0">
+      {/* Refresh Button Overlay */}
+      {onRefresh && (
+        <button
+          onClick={onRefresh}
+          disabled={isRefreshing}
+          className="absolute top-4 right-4 z-[1000] bg-slate-800/90 backdrop-blur text-white p-3 rounded-full shadow-lg border border-slate-600 hover:bg-slate-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Refresh Map"
+        >
+          <RefreshCw size={20} className={isRefreshing ? "animate-spin" : ""} />
+        </button>
+      )}
+
       <MapContainer
         center={[userLocation.lat, userLocation.lng]}
         zoom={3}
