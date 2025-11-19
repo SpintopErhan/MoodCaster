@@ -21,9 +21,14 @@ const App: React.FC = () => {
   useEffect(() => {
     const load = async () => {
       try {
+        // We are using a static import, but we wrap it in a try/catch block
+        // and add logs to ensure we know what's happening.
+        // The Polyfills in index.html ensure 'sdk' doesn't crash on import.
         console.log("Farcaster SDK: calling ready()...");
-        // It is safe to call ready() even if not in a frame, it just resolves
+        
+        // Call ready() to dismiss the splash screen
         await sdk.actions.ready();
+        
         console.log("Farcaster SDK: ready() called successfully");
       } catch (err) {
         console.error("Farcaster SDK: Error calling ready():", err);
