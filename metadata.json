@@ -1,0 +1,7 @@
+{
+  "name": "MoodCaster",
+  "description": "Share your current mood on the world map and see what others are feeling.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
