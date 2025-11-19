@@ -1,10 +1,44 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useLayoutEffect } from 'react';
 import WorldMap from './components/WorldMap';
 import MoodSelector from './components/MoodSelector';
 import { AppStep, Location, MoodEntry } from './types';
 import { api } from './services/api';
 import { Loader2, MapPinOff } from 'lucide-react';
-import { sdk } from '@farcaster/frame-sdk';
+
+// ==================== KESİN ÇALIŞAN FARCASTER READY (GROK METHOD) ====================
+function FarcasterMiniAppReady() {
+  useLayoutEffect(() => {
+    // Mini App ortamını tespit et (veya her zaman çalıştır, zarar gelmez)
+    const url = window.location.href;
+    const isMiniApp = url.includes('warpcast.com') || 
+                      url.includes('farcaster.xyz') || 
+                      url.includes('miniapp') || 
+                      url.includes('embedded') ||
+                      // Developer preview tespiti için
+                      url.includes('localhost') || 
+                      url.includes('vercel.app');
+
+    if (!isMiniApp) return;
+
+    console.log('Farcaster environment detected, injecting SDK script...');
+
+    // Tek satırda çalışan, manuel script injection yöntemi
+    const script = document.createElement('script');
+    script.type = 'module';
+    // Buffer polyfill zaten index.html'de var, o yüzden miniapp-sdk direkt çağrılabilir
+    script.innerHTML = `
+      import { sdk } from 'https://esm.sh/@farcaster/miniapp-sdk@latest?bundle';
+      console.log('SDK script loaded, setting timeout for ready()...');
+      setTimeout(() => {
+        sdk.actions.ready();
+        console.log('Called sdk.actions.ready() via injected script');
+      }, 1500);
+    `;
+    document.head.appendChild(script);
+  }, []);
+
+  return null;
+}
 
 const App: React.FC = () => {
   const [step, setStep] = useState<AppStep>(AppStep.LOADING_LOCATION);
@@ -16,24 +50,6 @@ const App: React.FC = () => {
   
   // Constant for 24 hours in milliseconds
   const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
-
-  // ---------------------------------------------------------------------------
-  // Farcaster MiniApp SDK Initialization
-  // Standard approach as per documentation
-  // ---------------------------------------------------------------------------
-  useEffect(() => {
-    const initSDK = async () => {
-      try {
-        // Signal to Farcaster that the app is ready to display
-        await sdk.actions.ready();
-        console.log('Farcaster SDK Ready!');
-      } catch (err) {
-        console.error('Error initializing Farcaster SDK:', err);
-      }
-    };
-    
-    initSDK();
-  }, []);
 
   // Function to fetch data (used on mount and on manual refresh)
   const loadGlobalData = useCallback(async () => {
@@ -147,6 +163,7 @@ const App: React.FC = () => {
   if (step === AppStep.LOADING_LOCATION) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-slate-950 text-white p-6">
+        <FarcasterMiniAppReady />
         {error ? (
           <div className="text-center space-y-4">
             <MapPinOff size={48} className="text-red-500 mx-auto" />
@@ -172,6 +189,8 @@ const App: React.FC = () => {
 
   return (
     <div className="relative w-full h-screen overflow-hidden bg-slate-950">
+      <FarcasterMiniAppReady />
+      
       {/* The Map */}
       {userLocation && (
         <WorldMap 
