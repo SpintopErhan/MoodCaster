@@ -1,51 +1,70 @@
-
 import { MoodEntry } from '../types';
-import { MOOD_OPTIONS, MOCK_STATUSES } from '../constants';
-
-// Simulate network delay to make it feel like a real API call
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+import { supabase } from './supabaseClient';
 
 export const api = {
   /**
-   * Fetches the snapshot of global moods.
-   * In a real Supabase implementation, this would be:
-   * supabase.from('moods').select('*').gt('timestamp', Date.now() - 24h)
+   * Fetches the snapshot of global moods from the last 24 hours.
    */
   fetchGlobalMoods: async (): Promise<MoodEntry[]> => {
-    await delay(800); // Simulate network request
+    // Calculate timestamp for 24 hours ago
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-    // Generate mock data on the fly to simulate receiving fresh data from DB
-    const count = 60;
-    const entries: MoodEntry[] = [];
-    
-    for (let i = 0; i < count; i++) {
-      const lat = (Math.random() * 160) - 80;
-      const lng = (Math.random() * 360) - 180;
-      const randomMood = MOOD_OPTIONS[Math.floor(Math.random() * MOOD_OPTIONS.length)];
-      const randomStatus = MOCK_STATUSES[Math.floor(Math.random() * MOCK_STATUSES.length)];
-      const timeAgo = Math.random() * TWENTY_FOUR_HOURS_MS;
+    try {
+      const { data, error } = await supabase
+        .from('moods')
+        .select('*')
+        .gt('created_at', twentyFourHoursAgo)
+        .order('created_at', { ascending: false })
+        .limit(1000); // Safety limit
 
-      entries.push({
-        id: `mock-${Math.random().toString(36).substr(2, 9)}`,
-        emoji: randomMood.emoji,
-        status: randomStatus,
-        lat,
-        lng,
-        timestamp: Date.now() - timeAgo,
-        isUser: false,
-      });
+      if (error) {
+        console.error('Error fetching moods:', error);
+        return [];
+      }
+
+      if (!data) return [];
+
+      // Map Supabase DB response to our App's MoodEntry type
+      return data.map((row: any) => ({
+        id: row.id,
+        emoji: row.emoji,
+        status: row.status || '',
+        lat: row.lat,
+        lng: row.lng,
+        timestamp: new Date(row.created_at).getTime(),
+        isUser: false, // Default to false, App.tsx handles the "You" logic
+      }));
+
+    } catch (err) {
+      console.error('Unexpected error fetching moods:', err);
+      return [];
     }
-    return entries;
   },
 
   /**
    * Publishes the user's mood to the backend.
    */
   publishMood: async (entry: MoodEntry): Promise<boolean> => {
-    await delay(600); // Simulate network request
-    console.log("Mood published to backend:", entry);
-    return true;
+    try {
+      const { error } = await supabase
+        .from('moods')
+        .insert({
+          emoji: entry.emoji,
+          status: entry.status,
+          lat: entry.lat,
+          lng: entry.lng,
+          // created_at and id are generated automatically by Supabase
+        });
+
+      if (error) {
+        console.error('Error publishing mood:', error);
+        return false;
+      }
+
+      return true;
+    } catch (err) {
+      console.error('Unexpected error publishing mood:', err);
+      return false;
+    }
   }
 };

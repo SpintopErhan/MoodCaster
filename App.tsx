@@ -9,6 +9,7 @@ import { Loader2, MapPinOff } from 'lucide-react';
 const App: React.FC = () => {
   const [step, setStep] = useState<AppStep>(AppStep.LOADING_LOCATION);
   const [userLocation, setUserLocation] = useState<Location | null>(null);
+  const [locationCity, setLocationCity] = useState<string | undefined>(undefined);
   const [entries, setEntries] = useState<MoodEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -34,6 +35,21 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Function to get city name from coordinates (Reverse Geocoding)
+  const fetchCityName = async (lat: number, lng: number) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+      );
+      const data = await response.json();
+      // Try to find the most relevant city/town name
+      const city = data.address.city || data.address.town || data.address.village || data.address.county || "Unknown Location";
+      setLocationCity(city);
+    } catch (error) {
+      console.error("Failed to fetch city name:", error);
+    }
+  };
+
   // 1. Initial Data Load
   useEffect(() => {
     loadGlobalData();
@@ -48,17 +64,22 @@ const App: React.FC = () => {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        const { latitude, longitude } = position.coords;
         setUserLocation({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
+          lat: latitude,
+          lng: longitude,
         });
+        fetchCityName(latitude, longitude);
         setStep(AppStep.MOOD_SELECTION);
       },
       (err) => {
         console.error(err);
         setError("Could not access your location. Please ensure you have granted permission.");
         // Fallback location (e.g., Istanbul) for UX continuity if permission denied
-        setUserLocation({ lat: 41.0082, lng: 28.9784 });
+        const fallbackLat = 41.0082;
+        const fallbackLng = 28.9784;
+        setUserLocation({ lat: fallbackLat, lng: fallbackLng });
+        fetchCityName(fallbackLat, fallbackLng);
         setStep(AppStep.MOOD_SELECTION);
       }
     );
@@ -90,7 +111,6 @@ const App: React.FC = () => {
   };
 
   // Filter entries to only show those within the last 24 hours
-  // (Double check client side, although API should handle this)
   const activeEntries = entries.filter(entry => {
     const age = Date.now() - entry.timestamp;
     return age < TWENTY_FOUR_HOURS_MS;
@@ -153,6 +173,7 @@ const App: React.FC = () => {
            <MoodSelector 
              onSubmit={handleMoodSubmit} 
              onClose={hasPosted ? handleCloseSelector : undefined}
+             locationCity={locationCity}
            />
         </div>
       )}
