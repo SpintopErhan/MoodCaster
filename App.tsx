@@ -23,13 +23,24 @@ const App: React.FC = () => {
         console.log("Attempting to load Farcaster SDK...");
         // Dynamic import to avoid blocking web execution if SDK fails to load
         // or if running in a standard browser environment
-        const sdk = await import('@farcaster/frame-sdk');
-        console.log("Farcaster SDK loaded. Calling ready()...");
+        // Cast to any to suppress type errors about missing 'actions' property on module import
+        const sdkModule = await import('@farcaster/frame-sdk') as any;
         
-        // Notify Farcaster that the frame is ready to be shown
-        // Access .default because dynamic import returns a module object
-        await sdk.default.actions.ready();
-        console.log("Farcaster SDK ready() called successfully.");
+        // Robustly handle the export structure
+        // Some environments return the default export as the module, others as .default
+        // We try to find the 'actions' object in either place
+        const sdk = sdkModule.default || sdkModule;
+
+        if (sdk && sdk.actions && typeof sdk.actions.ready === 'function') {
+           await sdk.actions.ready();
+           console.log("Farcaster SDK ready() called successfully via default/direct export.");
+        } else if (sdkModule && sdkModule.actions && typeof sdkModule.actions.ready === 'function') {
+           // Fallback check if .default wasn't the right path but root was
+           await sdkModule.actions.ready();
+           console.log("Farcaster SDK ready() called successfully via module root.");
+        } else {
+            console.warn("Farcaster SDK loaded but could not find 'actions.ready()'. Check import structure.", sdkModule);
+        }
       } catch (err) {
         // This might fail if not running inside Farcaster, which is expected for web testing
         console.warn("Farcaster SDK initialization failed (normal in web browser):", err);
