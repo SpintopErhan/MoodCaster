@@ -4,86 +4,85 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     
+    <!-- === CRITICAL POLYFILLS (MUST BE FIRST) === -->
+    <script>
+      // 1. Global Alignment
+      window.global = window;
+
+      // 2. Robust EventEmitter Implementation (ES5 compatible for safety)
+      function EventEmitter() { this.events = {}; }
+      EventEmitter.prototype.on = function(event, listener) {
+        if (!this.events[event]) this.events[event] = [];
+        this.events[event].push(listener);
+        return this;
+      };
+      EventEmitter.prototype.addListener = EventEmitter.prototype.on;
+      EventEmitter.prototype.removeListener = function(event, listener) {
+        if (this.events[event]) {
+          this.events[event] = this.events[event].filter(function(l) { return l !== listener; });
+        }
+        return this;
+      };
+      EventEmitter.prototype.off = EventEmitter.prototype.removeListener;
+      EventEmitter.prototype.emit = function(event) {
+        var args = Array.prototype.slice.call(arguments, 1);
+        if (this.events[event]) {
+          this.events[event].forEach(function(l) { l.apply(this, args); }.bind(this));
+          return true;
+        }
+        return false;
+      };
+      EventEmitter.prototype.once = function(event, listener) {
+        var self = this;
+        function g() {
+          self.removeListener(event, g);
+          listener.apply(this, arguments);
+        }
+        this.on(event, g);
+        return this;
+      };
+      EventEmitter.prototype.setMaxListeners = function() { return this; };
+
+      // 3. Process Polyfill
+      var process = new EventEmitter();
+      process.env = { NODE_ENV: 'production' };
+      process.version = 'v16.0.0';
+      process.browser = true;
+      process.platform = 'browser';
+      process.nextTick = function(cb) { setTimeout(cb, 0); };
+      process.cwd = function() { return '/'; };
+      
+      // 4. Stream Mocks (stdout/stderr)
+      process.stdout = new EventEmitter();
+      process.stdout.write = function() {};
+      process.stderr = new EventEmitter();
+      process.stderr.write = function() {};
+      
+      window.process = process;
+      window.EventEmitter = EventEmitter; // Expose for libraries checking global
+      
+      console.log("✅ Node.js Polyfills injected successfully.");
+    </script>
+
+    <!-- 5. Buffer Polyfill (Bundle.run is reliable for browser builds) -->
+    <script src="https://bundle.run/buffer@6.0.3"></script>
+    <script>
+      if (typeof window.buffer !== 'undefined' && window.buffer.Buffer) {
+        window.Buffer = window.buffer.Buffer;
+        window.global.Buffer = window.buffer.Buffer;
+        console.log("✅ Buffer loaded.");
+      }
+    </script>
+
     <!-- Farcaster Mini App (Frame v2) Meta Tags -->
     <meta property="fc:frame" content='{"version": "next", "imageUrl": "https://placehold.co/600x400?text=MoodCaster", "button": {"title": "Launch MoodCaster", "action": {"type": "launch_frame", "name": "MoodCaster", "url": "https://mood-caster.vercel.app", "splashImageUrl": "https://placehold.co/200x200?text=Loading"}}}' />
     <meta property="fc:miniapp" content="v1" />
     <meta property="fc:miniapp:name" content="MoodCaster" />
+    <meta property="fc:miniapp:icon" content="https://placehold.co/200x200?text=MC" />
     
     <title>MoodCaster</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- SUPER ROBUST POLYFILLS (Browser Compatibility Layer) -->
-    <script>
-      // 1. Global definition
-      window.global = window;
-
-      // 2. Robust Process Mock with Full EventEmitter Implementation
-      // WalletConnect and Farcaster SDK rely on process being an EventEmitter
-      class EventEmitter {
-        constructor() { this.events = {}; }
-        on(event, listener) {
-          if (!this.events[event]) this.events[event] = [];
-          this.events[event].push(listener);
-          return this;
-        }
-        removeListener(event, listener) {
-          if (!this.events[event]) return this;
-          this.events[event] = this.events[event].filter(l => l !== listener);
-          return this;
-        }
-        off(event, listener) { return this.removeListener(event, listener); }
-        addListener(event, listener) { return this.on(event, listener); }
-        emit(event, ...args) {
-          if (!this.events[event]) return false;
-          this.events[event].forEach(l => l(...args));
-          return true;
-        }
-        once(event, listener) {
-          const g = (...args) => {
-            this.removeListener(event, g);
-            listener(...args);
-          };
-          this.on(event, g);
-          return this;
-        }
-        listeners(event) { return this.events[event] || []; }
-      }
-
-      const process = new EventEmitter();
-      process.env = { NODE_ENV: 'production' };
-      process.version = 'v16.0.0';
-      process.nextTick = function(cb) { setTimeout(cb, 0); };
-      process.browser = true;
-      process.platform = 'browser';
-      process.cwd = function() { return '/'; };
-      
-      // FIX: Mock stdout/stderr as EventEmitters to prevent 'addListener' errors
-      const createStreamMock = () => {
-        const stream = new EventEmitter();
-        stream.write = () => {};
-        return stream;
-      };
-      process.stdout = createStreamMock();
-      process.stderr = createStreamMock();
-      
-      window.process = process;
-    </script>
-
-    <!-- 3. Load Buffer (Using bundle.run to avoid 'require is not defined' errors) -->
-    <script src="https://bundle.run/buffer@6.0.3"></script>
-    
-    <script>
-      // 4. Bind Buffer globally
-      // bundle.run usually attaches to window.buffer
-      if (window.buffer && window.buffer.Buffer) {
-        window.Buffer = window.buffer.Buffer;
-        window.global.Buffer = window.buffer.Buffer; // Extra safety
-        console.log("Polyfills loaded: Buffer ready");
-      } else {
-        console.warn("Buffer loading check: window.buffer is missing. SDK might be unstable.");
-      }
-    </script>
-
     <!-- Leaflet CSS -->
     <link
       rel="stylesheet"

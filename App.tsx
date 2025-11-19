@@ -13,29 +13,34 @@ const App: React.FC = () => {
   const [entries, setEntries] = useState<MoodEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSDKReady, setIsSDKReady] = useState(false);
   
   // Constant for 24 hours in milliseconds
   const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
   // Initialize Farcaster SDK
   useEffect(() => {
-    const load = async () => {
-      console.log("App mounted. Starting Farcaster SDK init...");
+    const initSDK = async () => {
       try {
-        // Explicitly wait for context to ensure SDK is connected
-        // If we are not in Farcaster, this might hang or fail, so we proceed to ready() anyway
+        // Call ready() to remove the splash screen
         sdk.actions.ready();
-        console.log("✅ sdk.actions.ready() called.");
+        setIsSDKReady(true);
+        console.log("✅ Farcaster SDK Ready signal sent.");
         
-        // Optional: Try to get context for debugging
+        // Attempt to get context (will only work in Farcaster environment)
         const context = await sdk.context;
-        console.log("Farcaster SDK Context:", context);
-
+        if(context) {
+            console.log("👤 Context loaded:", context);
+        }
       } catch (err) {
-        console.warn("Farcaster SDK init warning (expected in browser):", err);
+        // If we are in a standard browser, this might fail or be irrelevant,
+        // but due to polyfills, it shouldn't crash the app.
+        console.warn("⚠️ SDK Warning (Browser Environment?):", err);
+        setIsSDKReady(true);
       }
     };
-    load();
+    
+    initSDK();
   }, []);
 
   // Function to fetch data (used on mount and on manual refresh)
@@ -167,7 +172,9 @@ const App: React.FC = () => {
             <Loader2 size={48} className="animate-spin text-purple-500 mx-auto" />
             <h1 className="text-xl font-bold animate-pulse">Waiting for Location...</h1>
             <p className="text-slate-400 text-sm">Your location is required to place you on the world map.</p>
-            <p className="text-slate-600 text-xs mt-4">If stuck, check browser permissions.</p>
+            <p className="text-slate-600 text-xs mt-4">
+              {isSDKReady ? "SDK Ready. Acquiring GPS..." : "Initializing App..."}
+            </p>
           </div>
         )}
       </div>
