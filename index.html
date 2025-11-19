@@ -56,8 +56,15 @@
       process.browser = true;
       process.platform = 'browser';
       process.cwd = function() { return '/'; };
-      process.stdout = { write: () => {} };
-      process.stderr = { write: () => {} };
+      
+      // FIX: Mock stdout/stderr as EventEmitters to prevent 'addListener' errors
+      const createStreamMock = () => {
+        const stream = new EventEmitter();
+        stream.write = () => {};
+        return stream;
+      };
+      process.stdout = createStreamMock();
+      process.stderr = createStreamMock();
       
       window.process = process;
     </script>
@@ -70,6 +77,7 @@
       // bundle.run usually attaches to window.buffer
       if (window.buffer && window.buffer.Buffer) {
         window.Buffer = window.buffer.Buffer;
+        window.global.Buffer = window.buffer.Buffer; // Extra safety
         console.log("Polyfills loaded: Buffer ready");
       } else {
         console.warn("Buffer loading check: window.buffer is missing. SDK might be unstable.");

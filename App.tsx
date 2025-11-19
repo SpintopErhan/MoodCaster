@@ -20,26 +20,19 @@ const App: React.FC = () => {
   // Initialize Farcaster SDK
   useEffect(() => {
     const load = async () => {
-      console.log("App mounted. Initializing Farcaster SDK...");
+      console.log("App mounted. Starting Farcaster SDK init...");
       try {
         // Explicitly wait for context to ensure SDK is connected
-        const context = await sdk.context;
-        console.log("Farcaster SDK Context received:", context);
-
-        // Call ready() to dismiss the splash screen
+        // If we are not in Farcaster, this might hang or fail, so we proceed to ready() anyway
         sdk.actions.ready();
-        console.log("✅ sdk.actions.ready() called successfully.");
+        console.log("✅ sdk.actions.ready() called.");
+        
+        // Optional: Try to get context for debugging
+        const context = await sdk.context;
+        console.log("Farcaster SDK Context:", context);
 
       } catch (err) {
-        console.warn("Farcaster SDK initialization warning:", err);
-        // If we are in a browser (Vercel), sdk.context might fail or time out.
-        // We still attempt to call ready() to be safe, though it might throw if SDK isn't fully loaded.
-        try {
-            sdk.actions.ready();
-            console.log("✅ sdk.actions.ready() forced called.");
-        } catch (e) {
-            console.log("Running in standalone browser mode (outside Farcaster).");
-        }
+        console.warn("Farcaster SDK init warning (expected in browser):", err);
       }
     };
     load();
