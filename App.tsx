@@ -34,16 +34,7 @@ function FarcasterMiniAppReady() {
   return null; // ekranda hiçbir şey göstermiyor
 }
 
-            function App() {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
-      <FarcasterMiniAppReady />   {/* <<< BU SATIRI EKLE */}
-
-      {/* ... geri kalan tüm kodun aynen kalıyor */}
-      <div className="container mx-auto px-4 py-8 max-w-2xl">
-        <h1 className="text-5xl font-bold text-center mb-2">MoodCaster</h1>
-        // ... vs.
-
+         
 const App: React.FC = () => {
   const [step, setStep] = useState<AppStep>(AppStep.LOADING_LOCATION);
   const [userLocation, setUserLocation] = useState<Location | null>(null);
