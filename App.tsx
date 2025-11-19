@@ -1,10 +1,10 @@
-
 import React, { useEffect, useState, useCallback } from 'react';
 import WorldMap from './components/WorldMap';
 import MoodSelector from './components/MoodSelector';
 import { AppStep, Location, MoodEntry } from './types';
 import { api } from './services/api';
 import { Loader2, MapPinOff } from 'lucide-react';
+import sdk from '@farcaster/frame-sdk';
 
 const App: React.FC = () => {
   const [step, setStep] = useState<AppStep>(AppStep.LOADING_LOCATION);
@@ -16,6 +16,20 @@ const App: React.FC = () => {
 
   // Constant for 24 hours in milliseconds
   const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+
+  // Initialize Farcaster SDK
+  useEffect(() => {
+    const initSDK = async () => {
+      try {
+        // Notify Farcaster that the frame is ready to be shown
+        await sdk.actions.ready();
+      } catch (err) {
+        // This might fail if not running inside Farcaster, which is expected for web testing
+        console.debug("Farcaster SDK not detected or failed:", err);
+      }
+    };
+    initSDK();
+  }, []);
 
   // Function to fetch data (used on mount and on manual refresh)
   const loadGlobalData = useCallback(async () => {
