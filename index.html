@@ -12,41 +12,67 @@
     <title>MoodCaster</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- SUPER ROBUST POLYFILLS -->
+    <!-- SUPER ROBUST POLYFILLS (Browser Compatibility Layer) -->
     <script>
       // 1. Global definition
       window.global = window;
 
-      // 2. Robust Process Mock with EventEmitter
-      // The error "reading 'addListener'" happens because process is expected to be an EventEmitter
-      window.process = {
-        env: { NODE_ENV: 'production' },
-        version: 'v16.0.0',
-        nextTick: function(cb) { setTimeout(cb, 0); },
-        browser: true,
-        platform: 'browser',
-        cwd: function() { return '/'; },
-        // Event Emitter stubs
-        addListener: function() { return this; },
-        on: function() { return this; },
-        removeListener: function() { return this; },
-        off: function() { return this; },
-        emit: function() { return false; },
-        once: function() { return this; },
-        listeners: function() { return []; }
-      };
+      // 2. Robust Process Mock with Full EventEmitter Implementation
+      // WalletConnect and Farcaster SDK rely on process being an EventEmitter
+      class EventEmitter {
+        constructor() { this.events = {}; }
+        on(event, listener) {
+          if (!this.events[event]) this.events[event] = [];
+          this.events[event].push(listener);
+          return this;
+        }
+        removeListener(event, listener) {
+          if (!this.events[event]) return this;
+          this.events[event] = this.events[event].filter(l => l !== listener);
+          return this;
+        }
+        off(event, listener) { return this.removeListener(event, listener); }
+        addListener(event, listener) { return this.on(event, listener); }
+        emit(event, ...args) {
+          if (!this.events[event]) return false;
+          this.events[event].forEach(l => l(...args));
+          return true;
+        }
+        once(event, listener) {
+          const g = (...args) => {
+            this.removeListener(event, g);
+            listener(...args);
+          };
+          this.on(event, g);
+          return this;
+        }
+        listeners(event) { return this.events[event] || []; }
+      }
+
+      const process = new EventEmitter();
+      process.env = { NODE_ENV: 'production' };
+      process.version = 'v16.0.0';
+      process.nextTick = function(cb) { setTimeout(cb, 0); };
+      process.browser = true;
+      process.platform = 'browser';
+      process.cwd = function() { return '/'; };
+      process.stdout = { write: () => {} };
+      process.stderr = { write: () => {} };
+      
+      window.process = process;
     </script>
 
-    <!-- 3. Load Buffer (Synchronous) -->
-    <script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/index.min.js"></script>
+    <!-- 3. Load Buffer (Using bundle.run to avoid 'require is not defined' errors) -->
+    <script src="https://bundle.run/buffer@6.0.3"></script>
     
     <script>
       // 4. Bind Buffer globally
+      // bundle.run usually attaches to window.buffer
       if (window.buffer && window.buffer.Buffer) {
         window.Buffer = window.buffer.Buffer;
         console.log("Polyfills loaded: Buffer ready");
       } else {
-        console.warn("Buffer script loaded but window.buffer missing");
+        console.warn("Buffer loading check: window.buffer is missing. SDK might be unstable.");
       }
     </script>
 
