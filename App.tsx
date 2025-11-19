@@ -12,44 +12,43 @@ const App: React.FC = () => {
   const [entries, setEntries] = useState<MoodEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isSDKLoaded, setIsSDKLoaded] = useState(false);
 
   // Constant for 24 hours in milliseconds
   const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
   // ---------------------------------------------------------------------------
-  // CRITICAL: Farcaster SDK Initialization
-  // We load this dynamically using 'esm.sh' with the '?bundle' parameter.
-  // This ensures all dependencies (like zod) are included in one file,
-  // preventing "Module not found" errors in the browser.
+  // CRITICAL: Farcaster MiniApp SDK Initialization
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    const loadSDK = async () => {
+    const initFarcaster = async () => {
       try {
-        console.log("Attempting to load Farcaster SDK...");
+        // Check if we are strictly in a web browser (not iframe/embedded) just to be safe,
+        // or simply try to load. The safest bet for compatibility is to try loading.
         
-        // Use the 'bundle' parameter to ensure compatibility without a build step
-        const module = await import('https://esm.sh/@farcaster/frame-sdk@latest?bundle');
+        // Import the specific miniapp-sdk from esm.sh with bundle param to avoid dependency hell
+        const module = await import('https://esm.sh/@farcaster/miniapp-sdk?bundle');
         
-        // Handle both named and default exports
-        const sdk = module.sdk || module.default?.sdk;
+        // Handle ESM default export vs named export variability
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const sdk = (module as any).sdk || (module as any).default?.sdk;
 
         if (sdk && sdk.actions) {
-          console.log("SDK Loaded. Calling sdk.actions.ready()...");
-          // Notify Farcaster that the frame is ready to be shown
+          console.log("Farcaster MiniApp SDK loaded. Calling ready()...");
           await sdk.actions.ready();
           setIsSDKLoaded(true);
-          console.log("sdk.actions.ready() called successfully.");
+          console.log("Farcaster ready signal sent.");
         } else {
-          console.error("SDK loaded but 'sdk' or 'actions' not found in module:", module);
+          console.warn("SDK loaded but 'sdk' object was missing in module:", module);
         }
       } catch (err) {
-        console.error("Error loading Farcaster SDK:", err);
-        // Even if SDK fails (e.g. in normal browser), we allow the app to continue
+        // If this fails, it's likely we are just in a normal browser or network blocked script
+        console.warn("Farcaster SDK initialization skipped/failed:", err);
       }
     };
 
-    loadSDK();
+    initFarcaster();
   }, []);
 
   // Function to fetch data (used on mount and on manual refresh)
