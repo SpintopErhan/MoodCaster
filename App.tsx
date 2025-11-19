@@ -5,6 +5,45 @@ import { AppStep, Location, MoodEntry } from './types';
 import { api } from './services/api';
 import { Loader2, MapPinOff } from 'lucide-react';
 
+'use client'; // bu satır CRA’de gerek yok ama zararsız, silersen de olur
+
+import { useEffect } from 'react';
+
+function FarcasterMiniAppReady() {
+  useEffect(() => {
+    // Warpcast Mini App içinde miyiz? (Developer Preview + gerçek kullanım için geniş kontrol)
+    const isMiniApp = () => {
+      window.location.hostname.includes('warpcast.com') ||
+      new URLSearchParams(window.location.search).has('miniapp') ||
+      new URLSearchParams(window.location.search).has('embedded');
+
+    if (!isMiniApp()) return;
+
+    console.log('Farcaster Mini App algılandı, SDK yükleniyor...');
+
+    import('https://esm.sh/@farcaster/miniapp-sdk@latest?bundle')
+      .then(async ({ sdk }) => {
+        // Küçük bir gecikme ile ready()’nin kesinlikle çalıştığından emin oluyoruz
+        await new Promise(r => setTimeout(r, 150));
+        await sdk.actions.ready();
+        console.log('✅ ready() çağrıldı – splash screen kalktı!');
+      })
+      .catch(err => console.error('SDK yüklenemedi:', err));
+  }, []);
+
+  return null; // ekranda hiçbir şey göstermiyor
+}
+
+            function App() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
+      <FarcasterMiniAppReady />   {/* <<< BU SATIRI EKLE */}
+
+      {/* ... geri kalan tüm kodun aynen kalıyor */}
+      <div className="container mx-auto px-4 py-8 max-w-2xl">
+        <h1 className="text-5xl font-bold text-center mb-2">MoodCaster</h1>
+        // ... vs.
+
 const App: React.FC = () => {
   const [step, setStep] = useState<AppStep>(AppStep.LOADING_LOCATION);
   const [userLocation, setUserLocation] = useState<Location | null>(null);
