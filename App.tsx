@@ -4,6 +4,8 @@ import MoodSelector from './components/MoodSelector';
 import { AppStep, Location, MoodEntry } from './types';
 import { api } from './services/api';
 import { Loader2, MapPinOff } from 'lucide-react';
+// Static import is safe now due to polyfills in index.html
+import { sdk } from '@farcaster/frame-sdk';
 
 const App: React.FC = () => {
   const [step, setStep] = useState<AppStep>(AppStep.LOADING_LOCATION);
@@ -20,20 +22,12 @@ const App: React.FC = () => {
   useEffect(() => {
     const initSDK = async () => {
       try {
-        // Dynamically import the SDK. 
-        // With the polyfills in index.html, this should now work reliably in browsers.
-        const sdkModule = await import('@farcaster/frame-sdk') as any;
-        const sdk = sdkModule.default || sdkModule; // Handle ESM default export variations
-
         // Call ready() immediately as per Farcaster docs to hide splash screen
-        if (sdk?.actions?.ready) {
-            await sdk.actions.ready();
-            console.log("Farcaster SDK Ready Called");
-        } else {
-            console.warn("Farcaster SDK loaded, but ready action not found.");
-        }
+        // We use a slight delay or check to ensure context is ready, but usually calling it directly is fine
+        await sdk.actions.ready();
+        console.log("Farcaster SDK Ready Called Successfully");
       } catch (err) {
-        console.warn("Failed to load Farcaster SDK (expected in normal browser):", err);
+        console.warn("Error calling Farcaster SDK ready:", err);
       }
     };
     
