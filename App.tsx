@@ -12,36 +12,44 @@ const App: React.FC = () => {
   const [entries, setEntries] = useState<MoodEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSDKLoaded, setIsSDKLoaded] = useState(false);
 
   // Constant for 24 hours in milliseconds
   const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
-  // Initialize Farcaster SDK via Dynamic Import
-  // This prevents the app from crashing if the SDK fails to load or dependencies are missing
+  // ---------------------------------------------------------------------------
+  // CRITICAL: Farcaster SDK Initialization
+  // We load this dynamically using 'esm.sh' with the '?bundle' parameter.
+  // This ensures all dependencies (like zod) are included in one file,
+  // preventing "Module not found" errors in the browser.
+  // ---------------------------------------------------------------------------
   useEffect(() => {
-    const initSDK = async () => {
+    const loadSDK = async () => {
       try {
-        // Load SDK from a specific stable version on esm.sh
-        // We use 'any' to bypass TypeScript strict checks on the dynamic module structure
-        const sdkModule: any = await import('https://esm.sh/@farcaster/frame-sdk@0.0.30');
+        console.log("Attempting to load Farcaster SDK...");
         
-        // Handle different export formats (some CDNs wrap in default, some don't)
-        const sdk = sdkModule?.default?.sdk || sdkModule?.sdk || sdkModule?.default;
+        // Use the 'bundle' parameter to ensure compatibility without a build step
+        const module = await import('https://esm.sh/@farcaster/frame-sdk@latest?bundle');
+        
+        // Handle both named and default exports
+        const sdk = module.sdk || module.default?.sdk;
 
-        if (sdk && sdk.actions && sdk.actions.ready) {
+        if (sdk && sdk.actions) {
+          console.log("SDK Loaded. Calling sdk.actions.ready()...");
+          // Notify Farcaster that the frame is ready to be shown
           await sdk.actions.ready();
-          console.log("Farcaster SDK Ready Called Successfully");
+          setIsSDKLoaded(true);
+          console.log("sdk.actions.ready() called successfully.");
         } else {
-          console.warn("Farcaster SDK loaded but 'actions.ready' was not found.", sdk);
+          console.error("SDK loaded but 'sdk' or 'actions' not found in module:", module);
         }
       } catch (err) {
-        // If this fails, it likely means we are in a normal browser, not Farcaster
-        // We simply log it and let the app run normally.
-        console.warn("Could not load Farcaster SDK (running in web mode?):", err);
+        console.error("Error loading Farcaster SDK:", err);
+        // Even if SDK fails (e.g. in normal browser), we allow the app to continue
       }
     };
-    
-    initSDK();
+
+    loadSDK();
   }, []);
 
   // Function to fetch data (used on mount and on manual refresh)
