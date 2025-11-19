@@ -21,9 +21,12 @@ const App: React.FC = () => {
   useEffect(() => {
     const load = async () => {
       try {
+        console.log("Farcaster SDK: calling ready()...");
+        // It is safe to call ready() even if not in a frame, it just resolves
         await sdk.actions.ready();
+        console.log("Farcaster SDK: ready() called successfully");
       } catch (err) {
-        console.warn("Error notifying Farcaster SDK readiness (this is normal in browser):", err);
+        console.error("Farcaster SDK: Error calling ready():", err);
       }
     };
     load();
