@@ -16,6 +16,14 @@
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
       crossorigin=""
     />
+    
+    <!-- ESSENTIAL POLYFILLS FOR FARCASTER SDK -->
+    <script>
+      // Farcaster SDK relies on 'process.env' which doesn't exist in the browser by default.
+      // This polyfill prevents the "ReferenceError: process is not defined" crash.
+      window.process = { env: { NODE_ENV: 'production' } };
+    </script>
+
     <style>
       /* Custom Leaflet Marker Styles for Emojis */
       .emoji-marker {

@@ -20,32 +20,23 @@ const App: React.FC = () => {
   useEffect(() => {
     const initSDK = async () => {
       try {
-        console.log("Attempting to load Farcaster SDK...");
-        // Dynamic import to avoid blocking web execution if SDK fails to load
-        // or if running in a standard browser environment
-        // Cast to any to suppress type errors about missing 'actions' property on module import
+        // Dynamically import the SDK. 
+        // With the polyfills in index.html, this should now work reliably in browsers.
         const sdkModule = await import('@farcaster/frame-sdk') as any;
-        
-        // Robustly handle the export structure
-        // Some environments return the default export as the module, others as .default
-        // We try to find the 'actions' object in either place
-        const sdk = sdkModule.default || sdkModule;
+        const sdk = sdkModule.default || sdkModule; // Handle ESM default export variations
 
-        if (sdk && sdk.actions && typeof sdk.actions.ready === 'function') {
-           await sdk.actions.ready();
-           console.log("Farcaster SDK ready() called successfully via default/direct export.");
-        } else if (sdkModule && sdkModule.actions && typeof sdkModule.actions.ready === 'function') {
-           // Fallback check if .default wasn't the right path but root was
-           await sdkModule.actions.ready();
-           console.log("Farcaster SDK ready() called successfully via module root.");
+        // Call ready() immediately as per Farcaster docs to hide splash screen
+        if (sdk?.actions?.ready) {
+            await sdk.actions.ready();
+            console.log("Farcaster SDK Ready Called");
         } else {
-            console.warn("Farcaster SDK loaded but could not find 'actions.ready()'. Check import structure.", sdkModule);
+            console.warn("Farcaster SDK loaded, but ready action not found.");
         }
       } catch (err) {
-        // This might fail if not running inside Farcaster, which is expected for web testing
-        console.warn("Farcaster SDK initialization failed (normal in web browser):", err);
+        console.warn("Failed to load Farcaster SDK (expected in normal browser):", err);
       }
     };
+    
     initSDK();
   }, []);
 
