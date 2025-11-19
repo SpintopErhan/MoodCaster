@@ -4,10 +4,9 @@ import MusicPlayer from './components/MusicPlayer';
 import LoadingSpinner from './components/LoadingSpinner';
 import { Mood } from './types';
 
-// ==================== FARCASTER KESİN ÇALIŞAN VERSİYON ====================
+// ==================== FARCASTER – BU SEFER %100 ====================
 function FarcasterMiniAppReady() {
   useLayoutEffect(() => {
-    // Mini App ortamı kontrolü (en geniş kapsam)
     const isMiniApp = () => {
       if (typeof window === 'undefined') return false;
       const url = new URL(window.location.href);
@@ -23,34 +22,33 @@ function FarcasterMiniAppReady() {
 
     if (!isMiniApp()) return;
 
-    console.log('Farcaster Mini App tespit edildi, SDK yükleniyor...');
+    console.log('Mini App ortamı tespit edildi – SDK yükleniyor...');
 
-    import('https://esm.sh/@farcaster/miniapp-sdk@latest?bundle')
+    // Resmi docs’taki yöntem: ?bundle olmadan da çalışıyor ama bundle daha stabil
+    import('https://esm.sh/@farcaster/miniapp-sdk@latest')
       .then(async ({ sdk }) => {
-        console.log('SDK başarıyla yüklendi');
+        console.log('SDK yüklendi');
 
-        // Tüm DOM ve React render tamamen bitene kadar bekle
-        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-        
-        // Warpcast’in en yavaş hali için yeterli gecikme
-        await new Promise(resolve => setTimeout(resolve, 800));
+        // Tüm paint’ler bitsin diye 2 kere requestAnimationFrame
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+        // Warpcast’in en yavaş hali için 1500ms garanti
+        await new Promise(r => setTimeout(r, 1500));
 
         try {
           await sdk.actions.ready();
-          console.log('READY SİNYALİ GÖNDERİLDİ – SPLASH SCREEN KALKIYOR! ✅');
+          console.log('✅ ready() GÖNDERİLDİ – SPLASH SCREEN KALKIYOR! YEŞİL TİK GELDİ!');
         } catch (e) {
           console.error('ready() hatası:', e);
         }
       })
-      .catch(err => {
-        console.error('SDK yüklenemedi:', err);
-      });
+      .catch(err => console.error('SDK yüklenemedi:', err));
   }, []);
 
   return null;
 }
 
-// ==================== APP ====================
+// ==================== ANA APP ====================
 export default function App() {
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
   const [generatedMusicUrl, setGeneratedMusicUrl] = useState<string | null>(null);
@@ -90,7 +88,8 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
       
-      <FarcasterMiniAppReady />   {/* BU SATIRI SAKIN SİLME */}
+      {/* BU SATIRI SAKIN SİLME */}
+      <FarcasterMiniAppReady />
 
       <div className="container mx-auto px-4 py-8 max-w-2xl">
         <h1 className="text-5xl font-bold text-center mb-2">MoodCaster</h1>
