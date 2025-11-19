@@ -1,17 +1,38 @@
 
 export const MOOD_OPTIONS = [
+  // Emotions
   { emoji: '🤩', label: 'Amazing' },
   { emoji: '🙂', label: 'Good' },
   { emoji: '😐', label: 'Okay' },
   { emoji: '😴', label: 'Tired' },
   { emoji: '😢', label: 'Sad' },
   { emoji: '😡', label: 'Angry' },
-  { emoji: '🥳', label: 'Party' },
+  { emoji: '😂', label: 'LOL' },
+  { emoji: '😍', label: 'Loved' },
+  { emoji: '😎', label: 'Cool' },
   { emoji: '🤯', label: 'Shocked' },
+  { emoji: '🥺', label: 'Pleading' },
+  { emoji: '🤢', label: 'Sick' },
+  { emoji: '🤡', label: 'Clown' },
+  { emoji: '💀', label: 'Dead' },
   { emoji: '🤔', label: 'Thinking' },
+  
+  // Activities & Vibe
+  { emoji: '🥳', label: 'Party' },
   { emoji: '☕', label: 'Coffee' },
   { emoji: '💻', label: 'Coding' },
   { emoji: '🚀', label: 'Hype' },
+  { emoji: '👽', label: 'Alien' },
+  { emoji: '💪', label: 'Gym' },
+  { emoji: '🔥', label: 'Lit' },
+  { emoji: '❄️', label: 'Chill' },
+  { emoji: '🍕', label: 'Hungry' },
+  { emoji: '🍻', label: 'Cheers' },
+  { emoji: '🍷', label: 'Wine' },
+  { emoji: '🎧', label: 'Vibing' },
+  { emoji: '🎮', label: 'Gaming' },
+  { emoji: '💤', label: 'Sleep' },
+  { emoji: '👀', label: 'Looking' },
 ];
 
 export const MOCK_STATUSES = [
@@ -27,4 +48,16 @@ export const MOCK_STATUSES = [
   "Learning React",
   "Lunch time",
   "Gym session done",
+  "Touch grass",
+  "WAGMI",
+  "LFG!!!",
+  "Build mode",
+  "Just chilling",
+  "Listening to music",
+  "Reading docs",
+  "Bug fixing...",
+  "Deploying to prod",
+  "Pizza night",
+  "Watching movie",
+  "Late night coding"
 ];

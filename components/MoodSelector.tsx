@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useRef } from 'react';
 import { MOOD_OPTIONS } from '../constants';
 import { Send, MapPin, X } from 'lucide-react';
 
@@ -12,6 +13,12 @@ const MoodSelector: React.FC<MoodSelectorProps> = ({ onSubmit, onClose, location
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
   const [status, setStatus] = useState('');
 
+  // Refs for drag-to-scroll functionality
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const startX = useRef(0);
+  const scrollLeft = useRef(0);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedEmoji) {
@@ -19,10 +26,42 @@ const MoodSelector: React.FC<MoodSelectorProps> = ({ onSubmit, onClose, location
     }
   };
 
+  // Mouse Drag Event Handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!scrollContainerRef.current) return;
+    isDragging.current = true;
+    scrollContainerRef.current.classList.add('cursor-grabbing');
+    scrollContainerRef.current.classList.remove('cursor-grab');
+    startX.current = e.pageX - scrollContainerRef.current.offsetLeft;
+    scrollLeft.current = scrollContainerRef.current.scrollLeft;
+  };
+
+  const handleMouseLeave = () => {
+    if (!scrollContainerRef.current) return;
+    isDragging.current = false;
+    scrollContainerRef.current.classList.remove('cursor-grabbing');
+    scrollContainerRef.current.classList.add('cursor-grab');
+  };
+
+  const handleMouseUp = () => {
+    if (!scrollContainerRef.current) return;
+    isDragging.current = false;
+    scrollContainerRef.current.classList.remove('cursor-grabbing');
+    scrollContainerRef.current.classList.add('cursor-grab');
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging.current || !scrollContainerRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - scrollContainerRef.current.offsetLeft;
+    const walk = (x - startX.current) * 1.5; // Scroll-fast multiplier
+    scrollContainerRef.current.scrollLeft = scrollLeft.current - walk;
+  };
+
   return (
     <div 
       onClick={(e) => e.stopPropagation()}
-      className="absolute bottom-0 left-0 w-full bg-slate-900/95 backdrop-blur-md border-t border-slate-700 p-6 rounded-t-3xl shadow-2xl z-50 transition-all duration-500 ease-in-out max-h-[80vh] overflow-y-auto"
+      className="absolute bottom-0 left-0 w-full bg-slate-900/95 backdrop-blur-md border-t border-slate-700 p-6 rounded-t-3xl shadow-2xl z-50 transition-all duration-500 ease-in-out max-h-[85vh] overflow-y-auto no-scrollbar"
     >
       <div className="max-w-md mx-auto relative">
         {/* Close Button - Only shown if onClose is provided */}
@@ -50,21 +89,33 @@ const MoodSelector: React.FC<MoodSelectorProps> = ({ onSubmit, onClose, location
           </div>
         )}
 
-        <div className="grid grid-cols-4 gap-3 mb-6">
+        {/* Horizontal Scrollable Grid List (3 Rows) with Mouse Drag Support */}
+        <div 
+          ref={scrollContainerRef}
+          onMouseDown={handleMouseDown}
+          onMouseLeave={handleMouseLeave}
+          onMouseUp={handleMouseUp}
+          onMouseMove={handleMouseMove}
+          className="grid grid-rows-3 grid-flow-col gap-3 overflow-x-auto mb-6 -mx-6 px-6 pb-2 no-scrollbar snap-x cursor-grab select-none"
+        >
           {MOOD_OPTIONS.map((opt) => (
             <button
               key={opt.emoji}
-              onClick={() => setSelectedEmoji(opt.emoji)}
+              onClick={() => {
+                // Prevent click if we were just dragging (simple heuristic could be added here, 
+                // but often native behavior handles short clicks fine vs long drags)
+                setSelectedEmoji(opt.emoji);
+              }}
               className={`
-                flex flex-col items-center justify-center p-3 rounded-xl transition-all
+                flex-shrink-0 flex flex-col items-center justify-center p-2 rounded-xl transition-all w-20 h-20 snap-start select-none
                 ${selectedEmoji === opt.emoji 
-                  ? 'bg-purple-600/30 border-2 border-purple-500 scale-105 shadow-[0_0_15px_rgba(168,85,247,0.3)]' 
+                  ? 'bg-purple-600/30 border-2 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)]' 
                   : 'bg-slate-800 border border-slate-700 hover:bg-slate-700'
                 }
               `}
             >
               <span className="text-3xl mb-1">{opt.emoji}</span>
-              <span className="text-[10px] text-slate-300 uppercase tracking-wide font-medium">{opt.label}</span>
+              <span className="text-[10px] text-slate-300 uppercase tracking-wide font-medium w-full truncate text-center">{opt.label}</span>
             </button>
           ))}
         </div>
