@@ -4,8 +4,6 @@ import MoodSelector from './components/MoodSelector';
 import { AppStep, Location, MoodEntry } from './types';
 import { api } from './services/api';
 import { Loader2, MapPinOff } from 'lucide-react';
-// Static import is safe now due to polyfills in index.html
-import { sdk } from '@farcaster/frame-sdk';
 
 const App: React.FC = () => {
   const [step, setStep] = useState<AppStep>(AppStep.LOADING_LOCATION);
@@ -18,16 +16,28 @@ const App: React.FC = () => {
   // Constant for 24 hours in milliseconds
   const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
-  // Initialize Farcaster SDK
+  // Initialize Farcaster SDK via Dynamic Import
+  // This prevents the app from crashing if the SDK fails to load or dependencies are missing
   useEffect(() => {
     const initSDK = async () => {
       try {
-        // Call ready() immediately as per Farcaster docs to hide splash screen
-        // We use a slight delay or check to ensure context is ready, but usually calling it directly is fine
-        await sdk.actions.ready();
-        console.log("Farcaster SDK Ready Called Successfully");
+        // Load SDK from a specific stable version on esm.sh
+        // We use 'any' to bypass TypeScript strict checks on the dynamic module structure
+        const sdkModule: any = await import('https://esm.sh/@farcaster/frame-sdk@0.0.30');
+        
+        // Handle different export formats (some CDNs wrap in default, some don't)
+        const sdk = sdkModule?.default?.sdk || sdkModule?.sdk || sdkModule?.default;
+
+        if (sdk && sdk.actions && sdk.actions.ready) {
+          await sdk.actions.ready();
+          console.log("Farcaster SDK Ready Called Successfully");
+        } else {
+          console.warn("Farcaster SDK loaded but 'actions.ready' was not found.", sdk);
+        }
       } catch (err) {
-        console.warn("Error calling Farcaster SDK ready:", err);
+        // If this fails, it likely means we are in a normal browser, not Farcaster
+        // We simply log it and let the app run normally.
+        console.warn("Could not load Farcaster SDK (running in web mode?):", err);
       }
     };
     
