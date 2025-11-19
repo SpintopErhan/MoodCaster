@@ -4,78 +4,66 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     
-    <!-- === CRITICAL POLYFILLS (MUST BE FIRST) === -->
+    <!-- === NODE.JS POLYFILLS (CRITICAL FOR FARCASTER SDK) === -->
     <script>
-      // 1. Global Alignment
+      // 1. Global Definition
       window.global = window;
 
-      // 2. Robust EventEmitter Implementation (ES5 compatible for safety)
-      function EventEmitter() { this.events = {}; }
+      // 2. Buffer Polyfill
+      // We load this script synchronously to ensure window.Buffer is available immediately
+    </script>
+    <script src="https://bundle.run/buffer@6.0.3"></script>
+    <script>
+      if (window.buffer) {
+        window.Buffer = window.buffer.Buffer;
+        window.global.Buffer = window.buffer.Buffer;
+        console.log("✅ Buffer polyfill loaded");
+      }
+    </script>
+
+    <script>
+      // 3. Process & EventEmitter Polyfill
+      // Farcaster SDK (via WalletConnect) expects a fully functional process object with EventEmitter methods
+      
+      // Minimal EventEmitter implementation
+      var EventEmitter = function() { this.events = {}; };
       EventEmitter.prototype.on = function(event, listener) {
         if (!this.events[event]) this.events[event] = [];
         this.events[event].push(listener);
         return this;
       };
-      EventEmitter.prototype.addListener = EventEmitter.prototype.on;
       EventEmitter.prototype.removeListener = function(event, listener) {
         if (this.events[event]) {
           this.events[event] = this.events[event].filter(function(l) { return l !== listener; });
         }
         return this;
       };
+      EventEmitter.prototype.addListener = EventEmitter.prototype.on;
       EventEmitter.prototype.off = EventEmitter.prototype.removeListener;
-      EventEmitter.prototype.emit = function(event) {
-        var args = Array.prototype.slice.call(arguments, 1);
+      EventEmitter.prototype.emit = function(event, data) {
         if (this.events[event]) {
-          this.events[event].forEach(function(l) { l.apply(this, args); }.bind(this));
-          return true;
+          this.events[event].forEach(function(l) { l(data); });
         }
-        return false;
       };
-      EventEmitter.prototype.once = function(event, listener) {
-        var self = this;
-        function g() {
-          self.removeListener(event, g);
-          listener.apply(this, arguments);
-        }
-        this.on(event, g);
-        return this;
-      };
-      EventEmitter.prototype.setMaxListeners = function() { return this; };
 
-      // 3. Process Polyfill
       var process = new EventEmitter();
       process.env = { NODE_ENV: 'production' };
       process.version = 'v16.0.0';
       process.browser = true;
-      process.platform = 'browser';
       process.nextTick = function(cb) { setTimeout(cb, 0); };
-      process.cwd = function() { return '/'; };
       
-      // 4. Stream Mocks (stdout/stderr)
+      // Mock stdout/stderr with EventEmitter to prevent "addListener" crash
       process.stdout = new EventEmitter();
       process.stdout.write = function() {};
       process.stderr = new EventEmitter();
       process.stderr.write = function() {};
-      
+
       window.process = process;
-      window.EventEmitter = EventEmitter; // Expose for libraries checking global
-      
-      console.log("✅ Node.js Polyfills injected successfully.");
+      console.log("✅ Process polyfill loaded");
     </script>
 
-    <!-- 5. Buffer Polyfill (Bundle.run is reliable for browser builds) -->
-    <script src="https://bundle.run/buffer@6.0.3"></script>
-    <script>
-      if (typeof window.buffer !== 'undefined' && window.buffer.Buffer) {
-        window.Buffer = window.buffer.Buffer;
-        window.global.Buffer = window.buffer.Buffer;
-        console.log("✅ Buffer loaded.");
-      }
-    </script>
-
-    <!-- Farcaster Mini App (Frame v2) Meta Tags -->
-    <meta property="fc:frame" content='{"version": "next", "imageUrl": "https://placehold.co/600x400?text=MoodCaster", "button": {"title": "Launch MoodCaster", "action": {"type": "launch_frame", "name": "MoodCaster", "url": "https://mood-caster.vercel.app", "splashImageUrl": "https://placehold.co/200x200?text=Loading"}}}' />
+    <!-- Farcaster Frame v2 Meta Tags -->
+    <meta property="fc:frame" content='{"version": "next", "imageUrl": "https://placehold.co/600x400?text=MoodCaster", "button": {"title": "Launch MoodCaster", "action": {"type": "launch_frame", "name": "MoodCaster", "url": "https://mood-caster-seven.vercel.app", "splashImageUrl": "https://placehold.co/200x200?text=Loading"}}}' />
     <meta property="fc:miniapp" content="v1" />
     <meta property="fc:miniapp:name" content="MoodCaster" />
     <meta property="fc:miniapp:icon" content="https://placehold.co/200x200?text=MC" />
@@ -92,7 +80,6 @@
     />
 
     <style>
-      /* Custom Leaflet Marker Styles for Emojis */
       .emoji-marker {
         background: transparent;
         border: none;
@@ -108,7 +95,7 @@
         z-index: 1000 !important;
       }
       .leaflet-popup-content-wrapper {
-        background: rgba(30, 41, 59, 0.95); /* Slate-800 */
+        background: rgba(30, 41, 59, 0.95);
         color: white;
         border-radius: 12px;
         backdrop-filter: blur(8px);
@@ -116,33 +103,36 @@
       .leaflet-popup-tip {
         background: rgba(30, 41, 59, 0.95);
       }
-      
-      /* Hide scrollbar for Chrome, Safari and Opera */
       .no-scrollbar::-webkit-scrollbar {
         display: none;
       }
-      /* Hide scrollbar for IE, Edge and Firefox */
       .no-scrollbar {
-        -ms-overflow-style: none;  /* IE and Edge */
-        scrollbar-width: none;  /* Firefox */
+        -ms-overflow-style: none;
+        scrollbar-width: none;
       }
     </style>
-  <script type="importmap">
+
+    <!-- 
+      CRITICAL: Using esm.sh for ALL dependencies to ensure version compatibility (React 18).
+      Mixing CDNs caused React 19 vs 18 conflicts.
+    -->
+    <script type="importmap">
 {
   "imports": {
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
-    "react-leaflet": "https://aistudiocdn.com/react-leaflet@^5.0.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "leaflet/": "https://aistudiocdn.com/leaflet@^1.9.4/",
-    "leaflet": "https://aistudiocdn.com/leaflet@^1.9.4",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2",
-    "@farcaster/frame-sdk": "https://esm.sh/@farcaster/frame-sdk@0.0.30?bundle"
+    "react": "https://esm.sh/react@18.3.1",
+    "react/": "https://esm.sh/react@18.3.1/",
+    "react-dom": "https://esm.sh/react-dom@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "lucide-react": "https://esm.sh/lucide-react@0.263.1",
+    "leaflet": "https://esm.sh/leaflet@1.9.4",
+    "react-leaflet": "https://esm.sh/react-leaflet@4.2.1?external=react,react-dom,leaflet",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.45.4",
+    "@farcaster/frame-sdk": "https://esm.sh/@farcaster/frame-sdk@0.0.30?bundle",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
   }
 }
 </script>
-</head>
+  </head>
   <body class="bg-slate-950 text-white overflow-hidden">
     <div id="root"></div>
   </body>

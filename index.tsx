@@ -16,5 +16,12 @@ try {
   );
 } catch (error) {
   console.error("Application initialization failed:", error);
-  rootElement.innerHTML = '<div style="color: white; padding: 20px; text-align: center;">Failed to load application. Please refresh.</div>';
+  // Fallback UI if React fails completely
+  rootElement.innerHTML = `
+    <div style="color: white; padding: 20px; text-align: center; font-family: sans-serif;">
+      <h1>Application Error</h1>
+      <p>Failed to initialize. Please refresh.</p>
+      <pre style="color: #ff6b6b; font-size: 12px; overflow: auto;">${error}</pre>
+    </div>
+  `;
 }
