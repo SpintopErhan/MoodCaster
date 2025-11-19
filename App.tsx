@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useCallback } from 'react';
 import WorldMap from './components/WorldMap';
 import MoodSelector from './components/MoodSelector';
@@ -21,16 +20,19 @@ const App: React.FC = () => {
   useEffect(() => {
     const initSDK = async () => {
       try {
+        console.log("Attempting to load Farcaster SDK...");
         // Dynamic import to avoid blocking web execution if SDK fails to load
         // or if running in a standard browser environment
         const sdk = await import('@farcaster/frame-sdk');
+        console.log("Farcaster SDK loaded. Calling ready()...");
         
         // Notify Farcaster that the frame is ready to be shown
         // Access .default because dynamic import returns a module object
         await sdk.default.actions.ready();
+        console.log("Farcaster SDK ready() called successfully.");
       } catch (err) {
         // This might fail if not running inside Farcaster, which is expected for web testing
-        console.debug("Farcaster SDK not detected or failed:", err);
+        console.warn("Farcaster SDK initialization failed (normal in web browser):", err);
       }
     };
     initSDK();
